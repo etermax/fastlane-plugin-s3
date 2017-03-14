@@ -19,6 +19,7 @@ module Fastlane
         # Calling fetch on config so that default values will be used
         params = {}
         params[:apk] = config[:apk]
+        params[:apk_name] = config[:apk_name]
         params[:ipa] = config[:ipa]
         params[:dsym] = config[:dsym]
         params[:access_key] = config[:access_key]
@@ -42,6 +43,7 @@ module Fastlane
         s3_secret_access_key = params[:secret_access_key]
         s3_bucket = params[:bucket]
         apk_file = params[:apk]
+        apk_name = params[:apk_name]
         ipa_file = params[:ipa]
         dsym_file = params[:dsym]
         s3_path = params[:path]
@@ -62,7 +64,7 @@ module Fastlane
         s3_client = Aws::S3::Client.new
 
         upload_ipa(s3_client, params, s3_region, s3_access_key, s3_secret_access_key, s3_bucket, ipa_file, dsym_file, s3_path, acl) if ipa_file.to_s.length > 0
-        upload_apk(s3_client, params, s3_region, s3_access_key, s3_secret_access_key, s3_bucket, apk_file, s3_path, acl) if apk_file.to_s.length > 0
+        upload_apk(s3_client, params, s3_region, s3_access_key, s3_secret_access_key, s3_bucket, apk_file, apk_name, s3_path, acl) if apk_file.to_s.length > 0
 
         return true
       end
@@ -111,7 +113,7 @@ module Fastlane
         #####################################
         #
         # html and plist building
-        #
+        # =>
         #####################################
 
         # Gets info used for the plist
@@ -210,7 +212,7 @@ module Fastlane
         UI.success("iOS app can be downloaded at '#{Actions.lane_context[SharedValues::S3_HTML_OUTPUT_PATH]}'")
       end
 
-      def self.upload_apk(s3_client, params, s3_region, s3_access_key, s3_secret_access_key, s3_bucket, apk_file, s3_path, acl)
+      def self.upload_apk(s3_client, params, s3_region, s3_access_key, s3_secret_access_key, s3_bucket, apk_file, apk_name, s3_path, acl)
         version = get_apk_version(apk_file)
 
         version_code = version[0]
@@ -228,7 +230,7 @@ module Fastlane
 
         url_part = s3_path
 
-        apk_file_basename = File.basename(apk_file)
+        apk_file_basename = apk_name || File.basename(apk_file)
         apk_file_name = "#{url_part}#{apk_file_basename}"
         apk_file_data = File.open(apk_file, 'rb')
 
@@ -397,6 +399,11 @@ module Fastlane
                                        description: ".apk file for the build ",
                                        optional: true,
                                        default_value: Actions.lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]),
+          FastlaneCore::ConfigItem.new(key: :apk_name,
+                                       env_name: "",
+                                       description: ".apk s3 object name ",
+                                       optional: true,
+                                       default_value: nil),
           FastlaneCore::ConfigItem.new(key: :ipa,
                                        env_name: "",
                                        description: ".ipa file for the build ",
@@ -469,8 +476,7 @@ module Fastlane
                                        env_name: "S3_ACL",
                                        description: "Uploaded object permissions e.g public_read (default), private, public_read_write, authenticated_read ",
                                        optional: true,
-                                       default_value: "public-read"
-                                      )
+                                       default_value: "public-read")
         ]
       end
 
